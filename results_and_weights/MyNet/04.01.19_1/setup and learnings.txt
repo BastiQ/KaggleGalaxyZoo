@@ -1,0 +1,59 @@
+Trainable params: 4,574,309
+
+!!! Try Alexnet like structure (from Protein Atlas challenge)
+!!! Try LR 1e-5
+!!! Try 128 Nodes on Final layer
+
+______________________________________________ Data Augmentation: ______________________________________________ 
+
+train_args =  dict(rescale=1./255, 
+                   rotation_range = 355, 
+                   horizontal_flip = True, 
+                   vertical_flip = True,
+                   shear_range = 0.02,
+                   # width_shift_range = 0.1,
+                   # height_shift_range = 0.1,
+                   zoom_range = [0.9, 1.1],
+                   data_format = 'channels_last')
+
+______________________________________________ Network: ______________________________________________ 
+
+img_shape       = (IMG_SIZE[0], IMG_SIZE[1], 3)
+img_in          = layers.Input(img_shape, name='RGB-In')
+
+'''  CNN-Layers   ''' 
+# AlexNet (changed strides first layer 4->3)
+conv_1          = BatchNormalization()(MaxPooling2D(pool_size=(3, 3))(Conv2D(96, (11,11), strides=3, activation = 'relu', kernel_initializer=orthogonal_init, padding='same')(img_in)))
+conv_2          = BatchNormalization()(MaxPooling2D(pool_size=(3, 3), strides=2)(Conv2D(256, (5,5),  activation = 'relu', kernel_initializer=orthogonal_init, padding='same')(conv_1)))
+conv_3          = BatchNormalization()(Conv2D(384, (3,3), activation = 'relu', kernel_initializer=orthogonal_init, padding='same')(conv_2))
+conv_4          = BatchNormalization()(Conv2D(384, (3,3), activation = 'relu', kernel_initializer=orthogonal_init, padding='same')(conv_3))
+conv_5          = BatchNormalization()(MaxPooling2D(pool_size=(3, 3), strides=2)(Conv2D(256, (3,3),  activation = 'relu', kernel_initializer=orthogonal_init, padding='same')(conv_4)))
+flatten         = Flatten()(conv_5)
+
+'''   Dense Layers   '''
+dense_1         = Dense(128, kernel_initializer=orthogonal_init, activation = 'relu')(flatten) # , activation = 'relu'
+# activation_1    = LeakyReLU(alpha=.01)(dense_1)
+dropout1        = Dropout(DROPOUT)(dense_1)
+bn_5            = BatchNormalization()(dropout1)
+
+out_layer       = Dense(labels.shape[1]-1, activation = 'sigmoid')(bn_5) # 28 classes # later classifies multiple labels as well -> sigmoid
+
+'''   Define and compile Model   '''
+galaxy_model   = models.Model(inputs = [img_in], outputs = [out_layer], name = 'galaxy_model')
+galaxy_model.compile(loss      = 'mean_squared_error',
+                      optimizer = Adam(lr=LEARN_RATE),
+                      metrics   = ['acc', 'binary_crossentropy'])
+galaxy_model.summary()
+
+______________________________________________ Results: ______________________________________________ 
+
+Kaggle test Score: 0.11013 (Rank 77)
+
+______________________________________________ Learnings: ______________________________________________ 
+
+LR is too low! The curve is not steep (steil) enough. Try 1e-4 next
+
+______________________________________________ Changes sorted after priotity: ______________________________________________ 
+(!!!! Next run, !!! Very Important, !! Important, ! Maybe if there is time)
+
+!!!! Try LR 1e-4

@@ -1,0 +1,69 @@
+Trainable params: 4,574,309
+
+!!!! Reduced LR to 1e-4
+!!! No shear range, with_shift range of 0.01 (about 2-3 px) instead.
+!!! Added second dense layer (50 Nodes)
+!!! Reduced Filter size of first layer to 6x6 and stride to 2
+!!! Reduced Filter size of second layer to 3x3
+
+
+! Try Alexnet like structure (from Protein Atlas challenge)
+
+______________________________________________ Data Augmentation: ______________________________________________ 
+
+train_args =  dict(rescale=1./255, 
+                   rotation_range = 355, 
+                   horizontal_flip = True, 
+                   vertical_flip = True,
+                   # shear_range = 0.02,
+                   width_shift_range = 0.01,
+                   # height_shift_range = 0.01,
+                   zoom_range = [0.9, 1.1],
+                   data_format = 'channels_last')
+
+______________________________________________ Network: ______________________________________________ 
+
+img_shape       = (IMG_SIZE[0], IMG_SIZE[1], 3)
+img_in          = layers.Input(img_shape, name='RGB-In')
+
+orthogonal_init = Orthogonal(gain=1.0, seed=43)
+'''  CNN-Layers   ''' 
+# AlexNet (changed strides first layer 4->3)
+conv_1          = BatchNormalization()(MaxPooling2D(pool_size=(3, 3))(Conv2D(96, (6,6), strides=2, activation = 'relu', kernel_initializer=orthogonal_init, padding='same')(img_in)))
+conv_2          = BatchNormalization()(MaxPooling2D(pool_size=(3, 3), strides=2)(Conv2D(256, (3,3),  activation = 'relu', kernel_initializer=orthogonal_init, padding='same')(conv_1)))
+conv_3          = BatchNormalization()(Conv2D(384, (3,3), activation = 'relu', kernel_initializer=orthogonal_init, padding='same')(conv_2))
+conv_4          = BatchNormalization()(Conv2D(384, (3,3), activation = 'relu', kernel_initializer=orthogonal_init, padding='same')(conv_3))
+conv_5          = BatchNormalization()(MaxPooling2D(pool_size=(3, 3), strides=2)(Conv2D(256, (3,3),  activation = 'relu', kernel_initializer=orthogonal_init, padding='same')(conv_4)))
+flatten         = Flatten()(conv_5)
+
+'''   Dense Layers   '''
+dense_1         = Dense(128, kernel_initializer=orthogonal_init, activation = 'linear')(flatten) # , activation = 'relu'
+activation_1    = LeakyReLU(alpha=.01)(dense_1)
+dropout_1       = Dropout(DROPOUT)(dense_1)
+bn_6            = BatchNormalization()(dropout_1)
+
+dense_2         = Dense(50, kernel_initializer=orthogonal_init, activation = 'linear')(bn_6) # , activation = 'relu'
+activation_2    = LeakyReLU(alpha=.01)(dense_2)
+dropout_2       = Dropout(DROPOUT)(activation_2)
+bn_7            = BatchNormalization()(dropout_2)
+
+out_layer       = Dense(labels.shape[1]-1, activation = 'sigmoid')(bn_7) # 37 classes
+
+'''   Define and compile Model   '''
+galaxy_model   = models.Model(inputs = [img_in], outputs = [out_layer], name = 'galaxy_model')
+galaxy_model.compile(loss      = 'mean_squared_error',
+                      optimizer = Adam(lr=LEARN_RATE),
+                      metrics   = ['acc', 'binary_crossentropy'])
+galaxy_model.summary()
+
+______________________________________________ Results: ______________________________________________ 
+
+Kaggle test Score: 0.11993
+
+______________________________________________ Learnings: ______________________________________________ 
+
+Validation results are lower but the test result on Kaggle is worse. I think he overfittet because of too many epochs!
+-> Changed early stopping to 5 Epochs without improvement!
+
+______________________________________________ Changes sorted after priotity: ______________________________________________ 
+(!!!! Next run, !!! Very Important, !! Important, ! Maybe if there is time)
